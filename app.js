@@ -1,8 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const loginView = $('#loginView');
 const dashboardView = $('#dashboardView');
-const loginForm = $('#loginForm');
-const loginMessage = $('#loginMessage');
 const toast = $('#toast');
 let toastTimer;
 let micStream;
@@ -12,80 +10,74 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
 }
 
-function showDashboard(email) {
-  loginView.classList.add('hidden');
-  dashboardView.classList.remove('hidden');
-  $('#userEmail').textContent = email || '내 계정';
-}
-
-function showLogin() {
+function showLogin(message = '') {
   dashboardView.classList.add('hidden');
   loginView.classList.remove('hidden');
-  $('#password').value = '';
+  $('#loginMessage').textContent = message;
 }
 
-// Demo sign-in is intentionally local. A production account needs a private auth service.
-loginForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  loginMessage.textContent = '';
-  const email = $('#email').value.trim();
-  const password = $('#password').value;
-  if (!email || password.length < 8) {
-    loginMessage.textContent = '이메일과 8자 이상의 비밀번호를 입력해 주세요.';
-    return;
+function showDashboard(user) {
+  loginView.classList.add('hidden');
+  dashboardView.classList.remove('hidden');
+  $('#userEmail').textContent = user.login;
+  $('#sessionState').textContent = '보안 세션 활성';
+}
+
+async function checkSession() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('auth') === 'denied') showLogin('허용된 계정만 로그인할 수 있습니다.');
+  try {
+    const response = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) {
+      showLogin(params.get('auth') === 'error' ? '인증 설정이 완료되지 않았습니다. Vercel 설정을 확인해 주세요.' : '');
+      return;
+    }
+    const { user } = await response.json();
+    if (!user?.login) return showLogin();
+    showDashboard(user);
+  } catch {
+    showLogin('서버 인증을 사용할 수 없습니다. 배포 주소에서 다시 열어 주세요.');
   }
-  sessionStorage.setItem('homecam-demo-session', email);
-  showDashboard(email);
-  showToast('시제품 화면에 로그인했습니다. 카메라는 아직 연결되지 않았습니다.');
-});
+  if (params.has('auth')) history.replaceState({}, '', location.pathname);
+}
 
-$('#togglePassword').addEventListener('click', () => {
-  const field = $('#password');
-  const visible = field.type === 'password';
-  field.type = visible ? 'text' : 'password';
-  $('#togglePassword').textContent = visible ? '숨기기' : '보기';
-});
+async function logout() {
+  await stopMicrophone();
+  try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); }
+  finally { showLogin('로그아웃했습니다.'); }
+}
 
-$('#logoutButton').addEventListener('click', () => {
-  sessionStorage.removeItem('homecam-demo-session');
-  stopMicrophone();
-  showLogin();
-});
-
+$('#logoutButton').addEventListener('click', logout);
 $('#accountButton').addEventListener('click', () => {
-  const email = sessionStorage.getItem('homecam-demo-session');
-  if (email) showToast(`로그인 계정: ${email}`);
+  if (!dashboardView.classList.contains('hidden')) showToast(`로그인 계정: ${$('#userEmail').textContent}`);
 });
 
 function notConnected() {
-  showToast('연동 가능한 카메라 연결 방식이 확인되면 이 기능을 사용할 수 있습니다.');
+  showToast('이 카메라는 제조사의 공개 원격 제어 연동 방식이 확인되지 않아 아직 연결되지 않았습니다.');
 }
 
 $('#connectButton').addEventListener('click', notConnected);
 $('#videoConnect').addEventListener('click', notConnected);
 $('#refreshButton').addEventListener('click', notConnected);
-$('#settingsButton').addEventListener('click', () => showToast('카메라의 공식 연동 방법을 확인한 뒤 설정을 추가합니다.'));
+$('#settingsButton').addEventListener('click', () => showToast('카메라 공식 연동 방법이 확인되면 설정을 추가합니다.'));
 $('#powerToggle').addEventListener('click', notConnected);
 
 document.querySelectorAll('[data-direction]').forEach((button) => {
-  const begin = (event) => {
+  const end = () => {
+    button.classList.remove('pressed');
+    if (activeDirection === button.dataset.direction) activeDirection = null;
+  };
+  button.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     if (activeDirection) return;
     activeDirection = button.dataset.direction;
     button.classList.add('pressed');
     notConnected();
-  };
-  const end = () => {
-    button.classList.remove('pressed');
-    if (activeDirection === button.dataset.direction) activeDirection = null;
-  };
-  button.addEventListener('pointerdown', begin);
-  button.addEventListener('pointerup', end);
-  button.addEventListener('pointercancel', end);
-  button.addEventListener('pointerleave', end);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture'].forEach((name) => button.addEventListener(name, end));
   button.addEventListener('contextmenu', (event) => event.preventDefault());
 });
 
@@ -137,16 +129,14 @@ $('#micButton').addEventListener('pointerdown', async (event) => {
     const button = $('#micButton');
     button.classList.add('active');
     button.setAttribute('aria-pressed', 'true');
-    button.querySelector('b').textContent = '말하는 중 · 놓으면 종료';
+    button.querySelector('b').textContent = '마이크 켜짐 · 놓으면 종료';
     $('#micBadge').textContent = '●';
     $('#muteIndicator').classList.add('on');
-    $('#audioStatus').textContent = '마이크 켜짐 · 기기 연결 대기';
+    $('#audioStatus').textContent = '마이크 켜짐 · 카메라 음성 연결 대기';
   } catch {
     showToast('마이크 권한이 필요합니다. 브라우저 설정에서 허용해 주세요.');
   }
 });
-['pointerup', 'pointercancel', 'pointerleave'].forEach((name) => $('#micButton').addEventListener(name, stopMicrophone));
-$('#micButton').addEventListener('lostpointercapture', stopMicrophone);
+['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture'].forEach((name) => $('#micButton').addEventListener(name, stopMicrophone));
 
-const rememberedSession = sessionStorage.getItem('homecam-demo-session');
-if (rememberedSession) showDashboard(rememberedSession);
+checkSession();

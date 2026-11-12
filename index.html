@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111714" />
+  <meta name="description" content="개인용 홈 카메라 제어 앱 시제품" />
+  <title>우리집 카메라</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="우리집 카메라 홈"><span class="brand-mark">⌂</span><span>우리집 카메라</span></a>
+      <button class="icon-button profile" id="accountButton" aria-label="계정">나</button>
+    </header>
+
+    <section id="loginView" class="login-layout">
+      <div class="login-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="camera-illustration"><span class="cam-lens"></span><span class="cam-light"></span><span class="cam-base"></span></div>
+        <div class="art-caption"><span class="live-dot"></span> 내 기기만 안전하게 연결</div>
+      </div>
+      <div class="login-card">
+        <div class="eyebrow">PRIVATE HOME</div>
+        <h1>집을 지키는<br /><span>나만의 시선.</span></h1>
+        <p class="muted">로그인 후 내 카메라를 확인하고 제어하세요.</p>
+        <div class="demo-notice"><span>ⓘ</span><div><b>개발 시제품</b><br />실제 계정 인증과 카메라 연결 전입니다. 실제 비밀번호를 입력하지 마세요.</div></div>
+        <form id="loginForm">
+          <label for="email">이메일</label>
+          <input id="email" type="email" autocomplete="username" placeholder="name@example.com" required />
+          <label for="password">비밀번호</label>
+          <div class="password-wrap"><input id="password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요" required minlength="8" /><button type="button" id="togglePassword" aria-label="비밀번호 표시">보기</button></div>
+          <div class="form-row"><label class="check"><input type="checkbox" id="remember" /> <span>이 기기에서 로그인 유지</span></label><span class="secure-note">🔒 암호화된 세션</span></div>
+          <button class="primary-button full" type="submit">안전하게 로그인 <span>→</span></button>
+          <p class="form-message" id="loginMessage" role="status"></p>
+        </form>
+        <div class="login-foot"><span class="lock-mini">◈</span> 허가된 계정만 접근할 수 있습니다</div>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="dashboard hidden">
+      <aside class="sidebar">
+        <div class="side-label">내 공간</div>
+        <button class="nav-item active"><span>▦</span> 카메라</button>
+        <button class="nav-item" id="settingsButton"><span>⚙</span> 설정</button>
+        <div class="side-bottom"><div class="user-chip"><span class="avatar">나</span><span><b id="userEmail">내 계정</b><small>개인 사용자</small></span></div><button id="logoutButton" class="logout-button">로그아웃</button></div>
+      </aside>
+
+      <div class="main-content">
+        <div class="page-heading"><div><div class="eyebrow">HOME / DEVICES</div><h1>카메라 제어</h1><p class="muted">내 공간을 실시간으로 확인하고 제어합니다.</p></div><div class="connection-pill"><span class="status-dot"></span> 보안 세션 활성</div></div>
+
+        <div class="device-heading"><div><span class="device-icon">◉</span><div><h2>거실 카메라</h2><p><span class="status-dot"></span> <span id="deviceStatus">연결 대기</span> <span class="device-model">· Xiaomi Mi 360° 2K Pro</span></p></div></div><button class="outline-button" id="connectButton">카메라 연결</button></div>
+
+        <div class="control-grid">
+          <section class="video-panel panel">
+            <div class="video-stage" id="videoStage">
+              <div class="video-placeholder" id="videoPlaceholder"><div class="placeholder-icon">◉</div><strong>카메라 피드를 연결해 주세요</strong><span>기기에 연결되면 실시간 영상이 여기에 표시됩니다.</span><button class="primary-button" id="videoConnect">연결 시작 <span>→</span></button></div>
+              <video id="cameraVideo" autoplay playsinline muted class="hidden"></video>
+              <div class="video-overlay hidden" id="videoOverlay"><span><i class="live-dot"></i> LIVE</span><button id="fullscreenButton" aria-label="전체 화면">⛶</button></div>
+              <div class="video-error hidden" id="videoError"></div>
+            </div>
+            <div class="video-toolbar"><div><span class="privacy-icon">◈</span><span id="videoState">영상 연결 안 됨</span></div><div class="toolbar-actions"><button id="refreshButton" title="영상 다시 연결">↻</button><button id="snapshotButton" title="화면 저장">▧</button></div></div>
+          </section>
+
+          <section class="motion-panel panel">
+            <div class="panel-title"><div><div class="eyebrow">MOVEMENT</div><h3>방향 제어</h3></div><span class="panel-symbol">✣</span></div>
+            <p class="muted small">버튼을 누르고 있는 동안 카메라가 움직입니다.</p>
+            <div class="dpad" aria-label="카메라 방향 제어"><button data-direction="up" aria-label="위로">↑</button><button data-direction="left" aria-label="왼쪽">←</button><button class="dpad-center" disabled>⌖</button><button data-direction="right" aria-label="오른쪽">→</button><button data-direction="down" aria-label="아래로">↓</button></div>
+            <div class="motion-hint"><span class="hint-dot"></span> 카메라 연결 후 방향 제어 가능</div>
+          </section>
+
+          <section class="audio-panel panel">
+            <div class="panel-title"><div><div class="eyebrow">TWO-WAY AUDIO</div><h3>음성 전달</h3></div><div class="mic-badge" id="micBadge">◌</div></div>
+            <p class="muted small">기본값은 음소거입니다. 말할 때만 켜 주세요.</p>
+            <div class="audio-controls"><button id="micButton" class="mic-button" aria-pressed="false"><span>🎙</span><b>눌러서 말하기</b></button><div class="audio-state"><span class="mute-indicator" id="muteIndicator"></span><span id="audioStatus">마이크 꺼짐 · 음소거</span></div></div>
+            <div class="privacy-caption">마이크는 버튼을 누르는 동안에만 사용됩니다.</div>
+          </section>
+
+          <section class="power-panel panel"><div><div class="eyebrow">DEVICE POWER</div><h3>카메라 작동</h3><p class="muted small" id="powerDescription">연결 후 카메라 작동 상태를 제어할 수 있습니다.</p></div><button id="powerToggle" class="power-toggle" aria-pressed="false" aria-label="카메라 작동 켜기"><span></span></button></section>
+        </div>
+
+        <footer class="security-footer"><span>◈</span> 개인 계정으로 보호되는 연결 <span class="footer-sep">·</span> 영상과 음성은 연결된 카메라로 직접 전달됩니다.</footer>
+      </div>
+    </section>
+    <div class="toast" id="toast" role="status"></div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

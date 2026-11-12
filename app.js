@@ -29,10 +29,22 @@ function showDashboard(user) {
 async function checkSession() {
   const params = new URLSearchParams(location.search);
   if (params.get('auth') === 'denied') showLogin('허용된 계정만 로그인할 수 있습니다.');
+  if (params.get('auth') === 'error') {
+    const reasons = {
+      credentials: 'GitHub Client ID 또는 Client secret을 확인해야 합니다. 비밀값은 공유하지 말고 설정을 확인해 주세요.',
+      redirect: 'GitHub Redirect URI와 현재 앱 주소가 일치하지 않습니다.',
+      authorization: 'GitHub 인증 코드 교환에 실패했습니다. 다시 로그인해 주세요.',
+      token: 'GitHub 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      profile: 'GitHub 프로필 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+      session: '로그인 세션을 만들지 못했습니다. 설정을 확인해 주세요.',
+      server: '로그인 처리 중 서버 오류가 발생했습니다.',
+    };
+    showLogin(reasons[params.get('reason')] || '로그인 처리 중 오류가 발생했습니다.');
+  }
   try {
     const response = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' });
     if (!response.ok) {
-      showLogin(params.get('auth') === 'error' ? '인증 설정이 완료되지 않았습니다. Vercel 설정을 확인해 주세요.' : '');
+      if (params.get('auth') !== 'error' && params.get('auth') !== 'denied') showLogin('');
       return;
     }
     const { user } = await response.json();

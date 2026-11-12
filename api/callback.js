@@ -4,6 +4,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   const host = safeReturnHost(req);
   if (!host) return res.status(400).end('Invalid host');
+  let failureReason = 'server';
   try {
     const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_ALLOWED_LOGIN, SESSION_SECRET, SESSION_SECONDS } = sessionConfig();
     const { code, state, error } = req.query;
@@ -17,16 +18,23 @@ export default async function handler(req, res) {
       return res.redirect(302, '/?auth=denied');
     }
 
+    failureReason = 'token';
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: GITHUB_CLIENT_ID, client_secret: GITHUB_CLIENT_SECRET, code }),
+      body: JSON.stringify({ client_id: GITHUB_CLIENT_ID, client_secret: GITHUB_CLIENT_SECRET, code, redirect_uri: `https://${host}/api/callback` }),
       signal: AbortSignal.timeout(10000),
     });
     if (!tokenResponse.ok) throw new Error('GitHub token exchange failed');
     const tokenData = await tokenResponse.json();
-    if (!tokenData.access_token) throw new Error('GitHub did not return an access token');
+    if (!tokenData.access_token) {
+      if (tokenData.error === 'incorrect_client_credentials') failureReason = 'credentials';
+      else if (tokenData.error === 'redirect_uri_mismatch') failureReason = 'redirect';
+      else failureReason = 'authorization';
+      throw new Error('GitHub did not return an access token');
+    }
 
+    failureReason = 'profile';
     const userResponse = await fetch('https://api.github.com/user', {
       headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
       signal: AbortSignal.timeout(10000),
@@ -38,6 +46,7 @@ export default async function handler(req, res) {
       return res.redirect(302, '/?auth=denied');
     }
 
+    failureReason = 'session';
     const now = Math.floor(Date.now() / 1000);
     const session = signedToken({ login: user.login, id: user.id, iat: now, exp: now + SESSION_SECONDS }, SESSION_SECRET);
     res.setHeader('Set-Cookie', [
@@ -49,6 +58,6 @@ export default async function handler(req, res) {
     return res.redirect(302, '/');
   } catch {
     res.setHeader('Set-Cookie', [`cam_oauth_state=; ${clearCookieOptions()}`, `cam_oauth_nonce=; ${clearCookieOptions()}`]);
-    return res.redirect(302, '/?auth=error');
+    return res.redirect(302, `/?auth=error&reason=${failureReason}`);
   }
 }
